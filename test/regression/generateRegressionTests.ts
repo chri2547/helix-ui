@@ -20,6 +20,13 @@ while (matched = componentExtractor.exec(taggedForRegression)) {
 }
 
 const regressionTest = async (t: TestContext, config: IConfig, component: string) => {
+    if (process.env.CI) {
+        config.serverUrl = `http://${process.env.SAUCE_USERNAME}:${process.env.SAUCE_ACCESS_KEY}@ondemand.saucelabs.com:80/wd/hub`;
+        config.sauceLabs.name = component;
+        config.sauceLabs.build = process.env.TRAVIS_BUILD_NUMBER;
+        config.sauceLabs.tunnelIdentifier = process.env.TRAVIS_BUILD_ID;
+    }
+
     const snappit = new Snappit(config);
     const driver = await snappit.start();
     await util.go(driver, component);
@@ -29,7 +36,6 @@ const regressionTest = async (t: TestContext, config: IConfig, component: string
         t.log(`  ${sectionName}:`);
         await util.snapshot(t, e);
         t.log("    ✔ DOM Snapshot");
-        await driver.executeScript("window.scroll(0, 0);");
         await snappit.snap(`{browserName}/${sectionName}`, e as WebElement);
         t.log("    ✔ Image Snapshot");
     }
@@ -45,20 +51,26 @@ const config: IConfig = {
         "NO_BASELINE",
         "SIZE_DIFFERENCE",
     ],
+    sauceLabs: {
+        platform: 'macOS 10.12',
+        version: 'latest',
+        screenResolution: '1920x1440',
+    },
     threshold: 0.1,
-    headless: true,
-    initialViewportSize: [1366, 768],
+    initialViewportSize: [1920, 1440],
 };
 
-for (const component of matches) {
+for (const component of matches.slice(0, 1)) {
 
-    test(`firefox auto-generated regression case: ${component}`, async t => {
+    test.skip(`firefox auto-generated regression case: ${component}`, async t => {
         config.browser = "firefox";
+        config.sauceLabs.browserName = "firefox";
         await regressionTest(t, config, component);
     });
 
     test(`chrome auto-generated regression case: ${component}`, async t => {
         config.browser = "chrome";
+        config.sauceLabs.browserName = "chrome";
         await regressionTest(t, config, component);
     });
 
